@@ -1,5 +1,7 @@
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Queue;
+import java.util.LinkedList;
 
 public class Book_My_Stay_App {
 
@@ -103,15 +105,67 @@ public class Book_My_Stay_App {
         }
     }
 
-    // UC4 Main Method
+    // ==============================
+    // UC5 - Reservation Class
+    // ==============================
+
+    public static class Reservation {
+
+        private String guestName;
+        private String roomType;
+
+        public Reservation(String guestName, String roomType) {
+            this.guestName = guestName;
+            this.roomType = roomType;
+        }
+
+        public String getGuestName() {
+            return guestName;
+        }
+
+        public String getRoomType() {
+            return roomType;
+        }
+    }
+
+    // ==============================
+    // UC5 - Booking Request Queue
+    // ==============================
+
+    public static class BookingRequestQueue {
+
+        private Queue<Reservation> requestQueue;
+
+        public BookingRequestQueue() {
+            requestQueue = new LinkedList<>();
+        }
+
+        public void addRequest(Reservation reservation) {
+            requestQueue.offer(reservation);
+        }
+
+        public Reservation getNextRequest() {
+            return requestQueue.poll();
+        }
+
+        public boolean hasPendingRequests() {
+            return !requestQueue.isEmpty();
+        }
+    }
+
+    // ==============================
+    // MAIN METHOD (UC4 + UC5)
+    // ==============================
+
     public static void main(String[] args) {
+
+        // -------- UC4 : Room Search --------
 
         Room singleRoom = new SingleRoom();
         Room doubleRoom = new DoubleRoom();
         Room suiteRoom = new SuiteRoom();
 
         RoomInventory inventory = new RoomInventory();
-
         RoomSearchService searchService = new RoomSearchService();
 
         searchService.searchAvailableRooms(
@@ -120,5 +174,28 @@ public class Book_My_Stay_App {
                 doubleRoom,
                 suiteRoom
         );
+        System.out.println("Booking Request Queue");
+
+        BookingRequestQueue bookingQueue = new BookingRequestQueue();
+
+        Reservation r1 = new Reservation("Abhi", "Single");
+        Reservation r2 = new Reservation("Subha", "Double");
+        Reservation r3 = new Reservation("Vanmathi", "Suite");
+
+        bookingQueue.addRequest(r1);
+        bookingQueue.addRequest(r2);
+        bookingQueue.addRequest(r3);
+
+        while (bookingQueue.hasPendingRequests()) {
+
+            Reservation current = bookingQueue.getNextRequest();
+
+            System.out.println(
+                    "Processing booking for Guest: "
+                            + current.getGuestName()
+                            + ", Room Type: "
+                            + current.getRoomType()
+            );
+        }
     }
 }
