@@ -1,7 +1,4 @@
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Queue;
-import java.util.LinkedList;
+import java.util.*;
 
 public class Book_My_Stay_App {
 
@@ -23,28 +20,25 @@ public class Book_My_Stay_App {
         }
     }
 
-    // Single Room
     public static class SingleRoom extends Room {
         public SingleRoom() {
             super(1, 250, 1500.0);
         }
     }
 
-    // Double Room
     public static class DoubleRoom extends Room {
         public DoubleRoom() {
             super(2, 400, 2500.0);
         }
     }
 
-    // Suite Room
     public static class SuiteRoom extends Room {
         public SuiteRoom() {
             super(3, 750, 5000.0);
         }
     }
 
-    // Room Inventory
+
     public static class RoomInventory {
 
         private Map<String, Integer> roomAvailability;
@@ -69,7 +63,7 @@ public class Book_My_Stay_App {
         }
     }
 
-    // Room Search Service (UC4)
+
     public static class RoomSearchService {
 
         public void searchAvailableRooms(
@@ -105,9 +99,6 @@ public class Book_My_Stay_App {
         }
     }
 
-    // ==============================
-    // UC5 - Reservation Class
-    // ==============================
 
     public static class Reservation {
 
@@ -127,10 +118,6 @@ public class Book_My_Stay_App {
             return roomType;
         }
     }
-
-    // ==============================
-    // UC5 - Booking Request Queue
-    // ==============================
 
     public static class BookingRequestQueue {
 
@@ -153,49 +140,85 @@ public class Book_My_Stay_App {
         }
     }
 
-    // ==============================
-    // MAIN METHOD (UC4 + UC5)
-    // ==============================
+
+    public static class RoomAllocationService {
+
+        private Set<String> allocatedRoomIds;
+        private Map<String, Set<String>> assignedRoomsByType;
+
+        public RoomAllocationService() {
+            allocatedRoomIds = new HashSet<>();
+            assignedRoomsByType = new HashMap<>();
+        }
+
+        public void allocateRoom(Reservation reservation, RoomInventory inventory) {
+
+            String roomType = reservation.getRoomType();
+
+            int available = inventory.getRoomAvailability().get(roomType);
+
+            if (available <= 0) {
+                System.out.println("No rooms available for " + roomType);
+                return;
+            }
+
+            String roomId = generateRoomId(roomType);
+
+            allocatedRoomIds.add(roomId);
+
+            assignedRoomsByType
+                    .computeIfAbsent(roomType, k -> new HashSet<>())
+                    .add(roomId);
+
+            inventory.updateAvailability(roomType, available - 1);
+
+            System.out.println("Booking confirmed for Guest: "
+                    + reservation.getGuestName()
+                    + ", Room ID: "
+                    + roomId);
+        }
+
+        private String generateRoomId(String roomType) {
+
+            int count = assignedRoomsByType
+                    .getOrDefault(roomType, new HashSet<>())
+                    .size() + 1;
+
+            return roomType + "-" + count;
+        }
+    }
 
     public static void main(String[] args) {
 
-        // -------- UC4 : Room Search --------
-
-        Room singleRoom = new SingleRoom();
-        Room doubleRoom = new DoubleRoom();
-        Room suiteRoom = new SuiteRoom();
-
+        // ---------- UC4 ----------
         RoomInventory inventory = new RoomInventory();
+
         RoomSearchService searchService = new RoomSearchService();
 
         searchService.searchAvailableRooms(
                 inventory,
-                singleRoom,
-                doubleRoom,
-                suiteRoom
+                new SingleRoom(),
+                new DoubleRoom(),
+                new SuiteRoom()
         );
-        System.out.println("Booking Request Queue");
 
+        // ---------- UC5 ----------
         BookingRequestQueue bookingQueue = new BookingRequestQueue();
 
-        Reservation r1 = new Reservation("Abhi", "Single");
-        Reservation r2 = new Reservation("Subha", "Double");
-        Reservation r3 = new Reservation("Vanmathi", "Suite");
+        bookingQueue.addRequest(new Reservation("Abhi", "Single"));
+        bookingQueue.addRequest(new Reservation("Subha", "Single"));
+        bookingQueue.addRequest(new Reservation("Vanmathi", "Suite"));
 
-        bookingQueue.addRequest(r1);
-        bookingQueue.addRequest(r2);
-        bookingQueue.addRequest(r3);
+        // ---------- UC6 ----------
+        System.out.println("Room Allocation Processing");
+
+        RoomAllocationService allocator = new RoomAllocationService();
 
         while (bookingQueue.hasPendingRequests()) {
 
-            Reservation current = bookingQueue.getNextRequest();
+            Reservation reservation = bookingQueue.getNextRequest();
 
-            System.out.println(
-                    "Processing booking for Guest: "
-                            + current.getGuestName()
-                            + ", Room Type: "
-                            + current.getRoomType()
-            );
+            allocator.allocateRoom(reservation, inventory);
         }
     }
 }
