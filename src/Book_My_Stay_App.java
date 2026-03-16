@@ -1,3 +1,6 @@
+import java.util.HashMap;
+import java.util.Map;
+
 public class Book_My_Stay_App {
 
     // Abstract Room class
@@ -18,8 +21,8 @@ public class Book_My_Stay_App {
             System.out.println("Beds: " + numberOfBeds);
             System.out.println("Size: " + squareFeet + " sqft");
             System.out.println("Price per night: " + pricePerNight);
-            System.out.println("Available: " + available);
-            System.out.println("---------------------------");
+            System.out.println("Available Rooms: " + available);
+            System.out.println();
         }
     }
 
@@ -44,12 +47,43 @@ public class Book_My_Stay_App {
         }
     }
 
+    // Room Inventory Class
+    public static class RoomInventory {
+
+        // Key -> Room type, Value -> Available count
+        private Map<String, Integer> roomAvailability;
+
+        // Constructor
+        public RoomInventory() {
+            roomAvailability = new HashMap<>();
+            initializeInventory();
+        }
+
+        // Initialize room data
+        private void initializeInventory() {
+            roomAvailability.put("Single Room", 5);
+            roomAvailability.put("Double Room", 3);
+            roomAvailability.put("Suite Room", 2);
+        }
+
+        // Get availability map
+        public Map<String, Integer> getRoomAvailability() {
+            return roomAvailability;
+        }
+
+        // Update availability
+        public void updateAvailability(String roomType, int count) {
+            roomAvailability.put(roomType, count);
+        }
+    }
+
     // Main method
     public static void main(String[] args) {
-        Book_My_Stay_App app = new Book_My_Stay_App();
 
-        System.out.println("Welcome to the Hotel Booking Management System");
-        System.out.println("System initialized successfully\n");
+        Book_My_Stay_App app = new Book_My_Stay_App();
+        RoomInventory inventory = new RoomInventory();
+
+        System.out.println("Hotel Room Inventory Status\n");
 
         Room single = app.new SingleRoom();
         Room doubleRoom = app.new DoubleRoom();
