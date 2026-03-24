@@ -1,6 +1,7 @@
+import java.io.*;
 import java.util.*;
 
-abstract class Room {
+abstract class Room implements Serializable {
     String type;
     int beds;
     int size;
@@ -45,7 +46,7 @@ class SuiteRoom extends Room {
     }
 }
 
-class RoomInventory {
+class RoomInventory implements Serializable {
     private Map<String, Integer> inventory;
 
     RoomInventory() {
@@ -80,9 +81,13 @@ class RoomInventory {
         }
         return false;
     }
+
+    Map<String, Integer> getAll() {
+        return inventory;
+    }
 }
 
-class Reservation {
+class Reservation implements Serializable {
     String guestName;
     String roomType;
     String reservationId;
@@ -143,8 +148,7 @@ class BookingService {
 
     synchronized String allocateConcurrent(Reservation r) {
         if (inventory.allocate(r.roomType)) {
-            String id = r.roomType + "-" + counter++;
-            return id;
+            return r.roomType + "-" + counter++;
         }
         return null;
     }
@@ -166,7 +170,7 @@ class RoomSearchService {
     }
 }
 
-class AddOnService {
+class AddOnService implements Serializable {
     String name;
     double cost;
 
@@ -176,7 +180,7 @@ class AddOnService {
     }
 }
 
-class AddOnServiceManager {
+class AddOnServiceManager implements Serializable {
     Map<String, List<AddOnService>> map = new HashMap<>();
 
     void add(String id, AddOnService s) {
@@ -193,7 +197,7 @@ class AddOnServiceManager {
     }
 }
 
-class BookingHistory {
+class BookingHistory implements Serializable {
     List<Reservation> list = new ArrayList<>();
 
     void add(Reservation r) {
@@ -269,16 +273,50 @@ class BookingProcessor implements Runnable {
     }
 }
 
+class PersistenceService {
+    private static final String FILE = "hotel.dat";
+
+    void save(RoomInventory inventory, BookingHistory history) {
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(FILE))) {
+            oos.writeObject(inventory);
+            oos.writeObject(history);
+            System.out.println("Inventory saved successfully.");
+        } catch (Exception e) {
+            System.out.println("Error saving data.");
+        }
+    }
+
+    Object[] load() {
+        try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(FILE))) {
+            return new Object[]{(RoomInventory) ois.readObject(), (BookingHistory) ois.readObject()};
+        } catch (Exception e) {
+            System.out.println("No valid inventory data found. Starting fresh.");
+            return null;
+        }
+    }
+}
+
 public class Book_My_Stay_App {
     public static void main(String[] args) throws Exception {
         Scanner sc = new Scanner(System.in);
 
-        System.out.println("Welcome to Book My Stay v11.0\n");
+        System.out.println("Welcome to Book My Stay v12.0\n");
 
-        RoomInventory inventory = new RoomInventory();
+        PersistenceService persistence = new PersistenceService();
+        RoomInventory inventory;
+        BookingHistory history;
+
+        Object[] data = persistence.load();
+        if (data == null) {
+            inventory = new RoomInventory();
+            history = new BookingHistory();
+        } else {
+            inventory = (RoomInventory) data[0];
+            history = (BookingHistory) data[1];
+        }
+
         BookingService bookingService = new BookingService(inventory);
         BookingRequestQueue queue = new BookingRequestQueue();
-        BookingHistory history = new BookingHistory();
         AddOnServiceManager addOn = new AddOnServiceManager();
         CancellationService cancelService = new CancellationService(inventory, bookingService);
 
@@ -327,7 +365,6 @@ public class Book_My_Stay_App {
 
         t1.start();
         t2.start();
-
         t1.join();
         t2.join();
 
@@ -335,6 +372,13 @@ public class Book_My_Stay_App {
         System.out.println("Single: " + inventory.getAvailability("Single"));
         System.out.println("Double: " + inventory.getAvailability("Double"));
         System.out.println("Suite: " + inventory.getAvailability("Suite"));
+
+        System.out.println("\nCurrent Inventory:");
+        System.out.println("Single: " + inventory.getAvailability("Single"));
+        System.out.println("Double: " + inventory.getAvailability("Double"));
+        System.out.println("Suite: " + inventory.getAvailability("Suite"));
+
+        persistence.save(inventory, history);
 
         sc.close();
     }
