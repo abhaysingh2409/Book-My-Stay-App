@@ -157,32 +157,53 @@ class AddOnServiceManager {
     }
 }
 
+class BookingHistory {
+    private List<Reservation> history;
+
+    BookingHistory() {
+        history = new ArrayList<>();
+    }
+
+    void addReservation(Reservation r) {
+        history.add(r);
+    }
+
+    List<Reservation> getAllReservations() {
+        return history;
+    }
+}
+
+class BookingReportService {
+    void generateReport(List<Reservation> reservations) {
+        System.out.println("Booking History Report");
+        for (Reservation r : reservations) {
+            System.out.println("Guest: " + r.guestName + ", Room Type: " + r.roomType);
+        }
+    }
+}
+
 public class Book_My_Stay_App {
     public static void main(String[] args) {
-        System.out.println("Add-On Service Selection");
+        System.out.println("Booking History and Reporting");
+        System.out.println();
 
         RoomInventory inventory = new RoomInventory();
         BookingService bookingService = new BookingService(inventory);
         BookingRequestQueue queue = new BookingRequestQueue();
+        BookingHistory history = new BookingHistory();
 
         queue.addRequest(new Reservation("Abhi", "Single", ""));
-        Reservation r = queue.getNextRequest();
+        queue.addRequest(new Reservation("Subha", "Double", ""));
+        queue.addRequest(new Reservation("Vanmathi", "Suite", ""));
 
-        String roomId = bookingService.allocateRoom(r);
-        r.reservationId = roomId;
+        while (queue.hasRequests()) {
+            Reservation r = queue.getNextRequest();
+            String roomId = bookingService.allocateRoom(r);
+            r.reservationId = roomId;
+            history.addReservation(r);
+        }
 
-        System.out.println("Reservation ID: " + r.reservationId);
-
-        AddOnServiceManager manager = new AddOnServiceManager();
-
-        AddOnService breakfast = new AddOnService("Breakfast", 500.0);
-        AddOnService spa = new AddOnService("Spa", 1000.0);
-
-        manager.addService(r.reservationId, breakfast);
-        manager.addService(r.reservationId, spa);
-
-        double totalCost = manager.calculateTotalServiceCost(r.reservationId);
-
-        System.out.println("Total Add-On Cost: " + totalCost);
+        BookingReportService reportService = new BookingReportService();
+        reportService.generateReport(history.getAllReservations());
     }
 }
