@@ -46,7 +46,7 @@ class SuiteRoom extends Room {
 }
 
 class RoomInventory {
-    Map<String, Integer> inventory;
+    private Map<String, Integer> inventory;
 
     RoomInventory() {
         inventory = new HashMap<>();
@@ -55,21 +55,30 @@ class RoomInventory {
         inventory.put("Suite", 2);
     }
 
-    int getAvailability(String type) {
+    synchronized int getAvailability(String type) {
         return inventory.getOrDefault(type, 0);
     }
 
-    boolean isValidRoom(String type) {
+    synchronized boolean isValidRoom(String type) {
         return inventory.containsKey(type);
     }
 
-    void decrement(String type) throws Exception {
+    synchronized void decrement(String type) throws Exception {
         if (getAvailability(type) <= 0) throw new Exception("No rooms available.");
         inventory.put(type, getAvailability(type) - 1);
     }
 
-    void increment(String type) {
+    synchronized void increment(String type) {
         inventory.put(type, getAvailability(type) + 1);
+    }
+
+    synchronized boolean allocate(String type) {
+        int a = getAvailability(type);
+        if (a > 0) {
+            inventory.put(type, a - 1);
+            return true;
+        }
+        return false;
     }
 }
 
@@ -87,15 +96,15 @@ class Reservation {
 class BookingRequestQueue {
     Queue<Reservation> queue = new LinkedList<>();
 
-    void add(Reservation r) {
+    synchronized void add(Reservation r) {
         queue.add(r);
     }
 
-    Reservation next() {
+    synchronized Reservation next() {
         return queue.poll();
     }
 
-    boolean has() {
+    synchronized boolean has() {
         return !queue.isEmpty();
     }
 }
@@ -110,7 +119,7 @@ class BookingService {
         this.inventory = inventory;
     }
 
-    String allocate(Reservation r) throws Exception {
+    synchronized String allocate(Reservation r) throws Exception {
         if (!inventory.isValidRoom(r.roomType))
             throw new Exception("Invalid room type selected.");
 
@@ -119,19 +128,25 @@ class BookingService {
 
         inventory.decrement(r.roomType);
         usedIds.add(id);
-
         r.reservationId = id;
         confirmed.put(id, r);
-
         return id;
     }
 
-    Reservation get(String id) {
+    synchronized Reservation get(String id) {
         return confirmed.get(id);
     }
 
-    void remove(String id) {
+    synchronized void remove(String id) {
         confirmed.remove(id);
+    }
+
+    synchronized String allocateConcurrent(Reservation r) {
+        if (inventory.allocate(r.roomType)) {
+            String id = r.roomType + "-" + counter++;
+            return id;
+        }
+        return null;
     }
 }
 
@@ -229,11 +244,36 @@ class CancellationService {
     }
 }
 
+class BookingProcessor implements Runnable {
+    Queue<Reservation> queue;
+    BookingService service;
+
+    BookingProcessor(Queue<Reservation> queue, BookingService service) {
+        this.queue = queue;
+        this.service = service;
+    }
+
+    public void run() {
+        while (true) {
+            Reservation r;
+            synchronized (queue) {
+                if (queue.isEmpty()) break;
+                r = queue.poll();
+            }
+
+            String id = service.allocateConcurrent(r);
+            if (id != null) {
+                System.out.println("Booking confirmed for Guest: " + r.guestName + ", Room ID: " + id);
+            }
+        }
+    }
+}
+
 public class Book_My_Stay_App {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         Scanner sc = new Scanner(System.in);
 
-        System.out.println("Welcome to Book My Stay v10.0\n");
+        System.out.println("Welcome to Book My Stay v11.0\n");
 
         RoomInventory inventory = new RoomInventory();
         BookingService bookingService = new BookingService(inventory);
@@ -273,6 +313,28 @@ public class Book_My_Stay_App {
         }
 
         new BookingReportService().report(history.all());
+
+        System.out.println("\nConcurrent Booking Simulation");
+
+        Queue<Reservation> q = new LinkedList<>();
+        q.add(new Reservation("Abhi", "Single"));
+        q.add(new Reservation("Vanmathi", "Double"));
+        q.add(new Reservation("Kural", "Suite"));
+        q.add(new Reservation("Subha", "Single"));
+
+        Thread t1 = new Thread(new BookingProcessor(q, bookingService));
+        Thread t2 = new Thread(new BookingProcessor(q, bookingService));
+
+        t1.start();
+        t2.start();
+
+        t1.join();
+        t2.join();
+
+        System.out.println("\nRemaining Inventory:");
+        System.out.println("Single: " + inventory.getAvailability("Single"));
+        System.out.println("Double: " + inventory.getAvailability("Double"));
+        System.out.println("Suite: " + inventory.getAvailability("Suite"));
 
         sc.close();
     }
